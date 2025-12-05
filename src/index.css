@@ -1,0 +1,25 @@
+/* Traemos la fuente Orbitron (Cyberpunk) e Inter (Lectura) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definimos los colores base del cuerpo tomados de tu archivo */
+body {
+  background-color: #05050a; /* Fondo Cyber Dark */
+  color: #e2e8f0;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Títulos con la fuente futurista */
+h1, h2, h3, h4, .font-cyber {
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 1px;
+}
+
+/* Scrollbar personalizada para que combine */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #a855f7; }
