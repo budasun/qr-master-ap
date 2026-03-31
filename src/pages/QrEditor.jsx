@@ -143,33 +143,7 @@ const QrEditor = () => {
 
   const colors = ['#000000', '#ffffff', '#06b6d4', '#8b5cf6', '#f43f5e', '#10b981', '#f59e0b'];
 
-  // Shared Preview Component (used in both mobile and desktop)
-  const PreviewPanel = ({ className = "" }) => (
-    <div className={`relative flex items-center justify-center ${className}`}>
-      {/* Dot grid background */}
-      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-      
-      <div className="relative z-10 flex flex-col items-center py-8 md:py-0">
-          
-          <div ref={cardRef} className="p-6 md:p-8 bg-cyber-dark/0 flex flex-col items-center justify-center rounded-3xl"> 
-              <div className={`transition-all duration-300 flex flex-col items-center ${frames[frameStyle]}`}>
-                  <div className="bg-white p-2 rounded-lg">
-                       <div ref={qrRef}></div>
-                  </div>
-                  <div className={`mt-4 text-center font-cyber font-bold text-xl md:text-2xl tracking-widest uppercase drop-shadow-sm`} style={{ color: ctaColor }}>
-                      {ctaText}
-                  </div>
-              </div>
-          </div>
-          
-          {id && (
-              <button onClick={handleDownload} className="mt-6 md:mt-8 flex items-center gap-3 px-6 md:px-8 py-3 bg-white text-cyber-dark rounded-full hover:scale-105 active:scale-95 transition shadow-xl font-bold text-sm md:text-base">
-                 <DownloadSimple size={20} weight="fill" /> DESCARGAR IMAGEN
-              </button>
-          )}
-      </div>
-    </div>
-  );
+
 
   return (
     <div className="qr-editor-root flex flex-col md:flex-row h-[100dvh] bg-cyber-dark text-cyber-text overflow-hidden font-sans">
@@ -335,7 +309,30 @@ const QrEditor = () => {
       <div className={`flex-1 bg-cyber-dark ${
         mobileTab === "preview" ? "flex flex-col min-h-0" : "hidden md:flex md:flex-col"
       }`}>
-        <PreviewPanel className="flex-1 overflow-auto" />
+        <div className="relative flex items-center justify-center flex-1 overflow-auto">
+          {/* Dot grid background */}
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+          
+          <div className="relative z-10 flex flex-col items-center py-8 md:py-0">
+              
+              <div ref={cardRef} className="p-6 md:p-8 bg-cyber-dark/0 flex flex-col items-center justify-center rounded-3xl"> 
+                  <div className={`transition-all duration-300 flex flex-col items-center ${frames[frameStyle]}`}>
+                      <div className="bg-white p-2 rounded-lg">
+                           <div ref={qrRef}></div>
+                      </div>
+                      <div className={`mt-4 text-center font-cyber font-bold text-xl md:text-2xl tracking-widest uppercase drop-shadow-sm`} style={{ color: ctaColor }}>
+                          {ctaText}
+                      </div>
+                  </div>
+              </div>
+              
+              {id && (
+                  <button onClick={handleDownload} className="mt-6 md:mt-8 flex items-center gap-3 px-6 md:px-8 py-3 bg-white text-cyber-dark rounded-full hover:scale-105 active:scale-95 transition shadow-xl font-bold text-sm md:text-base">
+                     <DownloadSimple size={20} weight="fill" /> DESCARGAR IMAGEN
+                  </button>
+              )}
+          </div>
+        </div>
       </div>
 
       {/* ========== MOBILE FLOATING SAVE BUTTON ========== */}
