@@ -3,16 +3,16 @@ import { Link } from "react-router-dom";
 import { db } from "../firebase/config";
 import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { useAuth } from "../components/AuthContext";
-// Componente nuevo
-import QrThumb from "../components/QrThumb"; 
-// Iconos
-import { Trash, PencilSimple, Plus, SignOut, ChartBar, ShareNetwork, Envelope, WhatsappLogo, Link as LinkIcon, CheckCircle } from "phosphor-react";
+import QrThumb from "../components/QrThumb";
+import QRCodeStyling from "qr-code-styling";
+import { Trash, PencilSimple, Plus, SignOut, ChartBar, DownloadSimple, Envelope, WhatsappLogo, Link as LinkIcon, CheckCircle } from "phosphor-react";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const [qrs, setQrs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState(null); // Para mostrar el check de "Copiado"
+  const [copiedId, setCopiedId] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const fetchQrs = async () => {
     try {
@@ -56,6 +56,39 @@ const Dashboard = () => {
   const handleWhatsapp = (qrId) => {
     const link = getShareLink(qrId);
     window.open(`https://wa.me/?text=${encodeURIComponent(link)}`, '_blank');
+  };
+
+  // --- FUNCIÓN DE DESCARGA ---
+  const handleDownload = async (qr) => {
+    setDownloadingId(qr.id);
+    try {
+      const link = getShareLink(qr.id);
+      const qrInstance = new QRCodeStyling({
+        type: "canvas",
+        width: 800,
+        height: 800,
+        data: link,
+        image: qr.design?.logo || "",
+        dotsOptions: { color: qr.design?.color || "#000000", type: "rounded" },
+        backgroundOptions: { color: "#ffffff" },
+        imageOptions: { crossOrigin: "anonymous", margin: 5, imageSize: qr.design?.logoSize || 0.4 }
+      });
+
+      const blob = await qrInstance.getRawData("png");
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${qr.name || "qr-code"}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error("Error al descargar:", err);
+      alert("Error al generar la imagen");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -116,14 +149,30 @@ const Dashboard = () => {
                     {/* Botones de Acción */}
                     <div className="mt-auto space-y-3">
                         
-                        {/* Fila de Edición */}
+                        {/* Fila de Edición y Descarga */}
                         <div className="flex gap-2">
-                            <Link to={`/editor/${qr.id}`} className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-sm font-bold transition text-slate-300">
+                            <Link to={`/editor/${qr.id}`} className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-2.5 rounded-lg text-sm font-bold transition text-slate-300 active:scale-95">
                                 <PencilSimple size={16} /> Editar
                             </Link>
                             <button 
+                                onClick={() => handleDownload(qr)}
+                                disabled={downloadingId === qr.id}
+                                className={`px-3 rounded-lg transition border active:scale-95 ${
+                                  downloadingId === qr.id 
+                                    ? 'bg-cyber-primary/20 text-cyber-primary border-cyber-primary/30' 
+                                    : 'bg-cyber-primary/10 text-cyber-accent hover:bg-cyber-primary/20 border-cyber-primary/10'
+                                }`}
+                                title="Descargar QR"
+                            >
+                                {downloadingId === qr.id 
+                                  ? <span className="animate-spin block w-4 h-4 border-2 border-cyber-accent rounded-full border-t-transparent"></span>
+                                  : <DownloadSimple size={16} weight="bold" />
+                                }
+                            </button>
+                            <button 
                                 onClick={() => handleDelete(qr.id)}
-                                className="px-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition border border-red-500/10"
+                                className="px-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition border border-red-500/10 active:scale-95"
+                                title="Eliminar"
                             >
                                 <Trash size={16} />
                             </button>
