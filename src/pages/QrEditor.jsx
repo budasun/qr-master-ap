@@ -4,11 +4,11 @@ import { db } from "../firebase/config";
 import { doc, setDoc, getDoc, collection } from "firebase/firestore";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
-import { ArrowLeft, DownloadSimple, YoutubeLogo, TwitterLogo, InstagramLogo, X, Image, FloppyDisk } from "phosphor-react";
+import { ArrowLeft, DownloadSimple, YoutubeLogo, TwitterLogo, InstagramLogo, X, Image, FloppyDisk, Eye, Sliders, CheckCircle, LinkSimple } from "phosphor-react";
 import { toPng } from 'html-to-image';
 
 const qrCode = new QRCodeStyling({
-  type: "canvas", // <--- ¡AÑADE ESTA LÍNEA AQUÍ!
+  type: "canvas",
   width: 280,
   height: 280,
   image: "",
@@ -25,15 +25,19 @@ const QrEditor = () => {
   const cardRef = useRef(null);
   
   // Estados
-  const [qrName, setQrName] = useState(""); // <--- NUEVO: Nombre para identificarlo
+  const [qrName, setQrName] = useState("");
   const [targetUrl, setTargetUrl] = useState(""); 
   const [ctaText, setCtaText] = useState("ESCANÉAME");
   const [qrColor, setQrColor] = useState("#000000"); 
   const [ctaColor, setCtaColor] = useState("#ffffff");
   const [logoUrl, setLogoUrl] = useState(""); 
-  const [logoSize, setLogoSize] = useState(0.4); // <--- NUEVO: Tamaño del logo (0.1 a 0.5)
+  const [logoSize, setLogoSize] = useState(0.4);
   const [frameStyle, setFrameStyle] = useState("none");
   const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  
+  // Mobile tab state
+  const [mobileTab, setMobileTab] = useState("edit"); // "edit" | "preview"
 
   const baseUrl = window.location.origin;
   const qrContent = id ? `${baseUrl}/r/${id}` : "https://tu-app-url.com";
@@ -53,13 +57,13 @@ const QrEditor = () => {
                 const docSnap = await getDoc(doc(db, "qrs", id));
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    setQrName(data.name || ""); // Cargar nombre
+                    setQrName(data.name || "");
                     setTargetUrl(data.targetUrl || "");
                     setCtaText(data.design?.ctaText || "ESCANÉAME");
                     setQrColor(data.design?.color || "#000000");
                     setCtaColor(data.design?.ctaColor || "#ffffff");
                     setLogoUrl(data.design?.logo || "");
-                    setLogoSize(data.design?.logoSize || 0.4); // Cargar tamaño logo
+                    setLogoSize(data.design?.logoSize || 0.4);
                     setFrameStyle(data.design?.frame || "none");
                 }
             } catch (error) { console.error(error); }
@@ -74,7 +78,6 @@ const QrEditor = () => {
       image: logoUrl,
       dotsOptions: { color: qrColor, type: "rounded" },
       backgroundOptions: { color: "#ffffff" },
-      // AQUÍ SE APLICA EL TAMAÑO DINÁMICO
       imageOptions: { crossOrigin: "anonymous", margin: 5, imageSize: logoSize } 
     });
     if (qrRef.current) {
@@ -86,7 +89,7 @@ const QrEditor = () => {
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-        if (file.size > 2097152) return alert("⚠️ Imagen muy pesada (Máx 2MB)"); // Subí el límite un poco
+        if (file.size > 2097152) return alert("⚠️ Imagen muy pesada (Máx 2MB)");
         const reader = new FileReader();
         reader.onload = (ev) => setLogoUrl(ev.target.result);
         reader.readAsDataURL(file);
@@ -95,14 +98,14 @@ const QrEditor = () => {
 
   const handleSave = async () => {
     if (!targetUrl) return alert("Falta la URL de destino");
-    if (!qrName) return alert("Ponle un nombre a tu proyecto (ej: 'Menú Cena')"); // Validación nombre
+    if (!qrName) return alert("Ponle un nombre a tu proyecto (ej: 'Menú Cena')");
     
     setLoading(true);
     try {
         const docRef = id ? doc(db, "qrs", id) : doc(collection(db, "qrs"));
         await setDoc(docRef, {
           userId: user.uid,
-          name: qrName, // Guardamos el nombre
+          name: qrName,
           targetUrl,
           updatedAt: new Date(),
           design: { 
@@ -110,13 +113,16 @@ const QrEditor = () => {
               ctaText, 
               ctaColor, 
               logo: logoUrl, 
-              logoSize, // Guardamos el tamaño
+              logoSize,
               frame: frameStyle 
             }
         }, { merge: true });
         
         if (!id) navigate(`/editor/${docRef.id}`);
-        else alert("¡Diseño guardado!");
+        else {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        }
     } catch (error) { alert("Error al guardar"); } 
     finally { setLoading(false); }
   };
@@ -126,7 +132,7 @@ const QrEditor = () => {
     try {
         const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 3 });
         const link = document.createElement('a');
-        link.download = `${qrName || 'qr-code'}.png`; // El archivo se descarga con el nombre del proyecto
+        link.download = `${qrName || 'qr-code'}.png`;
         link.href = dataUrl;
         link.click();
     } catch (err) {
@@ -137,138 +143,217 @@ const QrEditor = () => {
 
   const colors = ['#000000', '#ffffff', '#06b6d4', '#8b5cf6', '#f43f5e', '#10b981', '#f59e0b'];
 
-  return (
-    <div className="flex flex-col md:flex-row h-screen bg-cyber-dark text-cyber-text overflow-hidden font-sans">
+  // Shared Preview Component (used in both mobile and desktop)
+  const PreviewPanel = ({ className = "" }) => (
+    <div className={`relative flex items-center justify-center ${className}`}>
+      {/* Dot grid background */}
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
       
-      {/* PANEL IZQUIERDO */}
-      <div className="w-full md:w-1/3 p-6 border-r border-cyber-surface overflow-y-auto custom-scrollbar bg-[#0a0a12]">
-        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-400 mb-6 hover:text-cyber-primary transition font-medium text-sm">
-            <ArrowLeft size={16} /> Volver
+      <div className="relative z-10 flex flex-col items-center py-8 md:py-0">
+          
+          <div ref={cardRef} className="p-6 md:p-8 bg-cyber-dark/0 flex flex-col items-center justify-center rounded-3xl"> 
+              <div className={`transition-all duration-300 flex flex-col items-center ${frames[frameStyle]}`}>
+                  <div className="bg-white p-2 rounded-lg">
+                       <div ref={qrRef}></div>
+                  </div>
+                  <div className={`mt-4 text-center font-cyber font-bold text-xl md:text-2xl tracking-widest uppercase drop-shadow-sm`} style={{ color: ctaColor }}>
+                      {ctaText}
+                  </div>
+              </div>
+          </div>
+          
+          {id && (
+              <button onClick={handleDownload} className="mt-6 md:mt-8 flex items-center gap-3 px-6 md:px-8 py-3 bg-white text-cyber-dark rounded-full hover:scale-105 active:scale-95 transition shadow-xl font-bold text-sm md:text-base">
+                 <DownloadSimple size={20} weight="fill" /> DESCARGAR IMAGEN
+              </button>
+          )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="qr-editor-root flex flex-col md:flex-row h-[100dvh] bg-cyber-dark text-cyber-text overflow-hidden font-sans">
+      
+      {/* ========== MOBILE TOP BAR ========== */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#0a0a12] border-b border-slate-800 shrink-0">
+        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-400 hover:text-cyber-primary transition font-medium text-sm p-1">
+            <ArrowLeft size={18} weight="bold" />
         </button>
-        
-        <h2 className="text-3xl font-cyber font-bold mb-6 text-white">Editar Diseño</h2>
-        
-        {/* --- NUEVO: NOMBRE DEL PROYECTO --- */}
-        <div className="mb-6">
-          <label className="block text-xs uppercase tracking-widest text-cyber-primary mb-2 font-bold">Nombre del Proyecto (Interno)</label>
-          <input value={qrName} onChange={(e) => setQrName(e.target.value)}
-            className="w-full bg-cyber-surface p-3 rounded-xl text-white border border-slate-700 focus:border-cyber-primary outline-none transition font-bold" 
-            placeholder="Ej: Menú Restaurante, WiFi Casa..." />
-        </div>
-
-        {/* URL */}
-        <div className="mb-6">
-          <label className="block text-xs uppercase tracking-widest text-slate-500 mb-2 font-bold">Destino URL</label>
-          <input value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)}
-            className="w-full bg-cyber-surface p-3 rounded-xl text-white border border-slate-700 focus:border-cyber-primary outline-none transition" 
-            placeholder="https://..." />
-        </div>
-
-        {/* LOGO + SLIDER DE TAMAÑO */}
-        <div className="mb-6 bg-cyber-surface p-4 rounded-xl border border-slate-700">
-            <label className="block text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Logo</label>
-            <div className="flex gap-2 mb-3">
-                <button onClick={() => setLogoUrl("https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg")} className="p-2 bg-[#0f172a] rounded hover:scale-110 transition"><InstagramLogo size={20} color="#E1306C" weight="fill"/></button>
-                <button onClick={() => setLogoUrl("https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg")} className="p-2 bg-[#0f172a] rounded hover:scale-110 transition"><YoutubeLogo size={20} color="#FF0000" weight="fill"/></button>
-                {logoUrl && <button onClick={() => setLogoUrl("")} className="p-2 bg-red-900/20 text-red-400 rounded"><X size={20}/></button>}
-            </div>
-            
-            <div className="relative group cursor-pointer border border-dashed border-slate-600 rounded-lg p-3 text-center hover:border-cyber-accent transition mb-4">
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
-                <span className="text-xs text-slate-400 group-hover:text-white flex items-center justify-center gap-2"><Image size={16}/> Subir Logo Propio</span>
-            </div>
-
-            {/* --- SLIDER DE TAMAÑO --- */}
-            {logoUrl && (
-                <div>
-                    <div className="flex justify-between text-xs text-slate-400 mb-1">
-                        <span>Tamaño</span>
-                        <span>{Math.round(logoSize * 100)}%</span>
-                    </div>
-                    <input 
-                        type="range" 
-                        min="0.2" 
-                        max="0.6" 
-                        step="0.05" 
-                        value={logoSize} 
-                        onChange={(e) => setLogoSize(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyber-primary"
-                    />
-                </div>
-            )}
-        </div>
-
-        {/* MARCOS */}
-        <div className="mb-6">
-            <label className="block text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Marco / Estilo</label>
-            <div className="grid grid-cols-3 gap-2">
-                {Object.keys(frames).map((f) => (
-                    <button key={f} onClick={() => setFrameStyle(f)} className={`p-2 rounded border text-xs capitalize ${frameStyle === f ? 'border-cyber-primary bg-cyber-primary/10 text-white' : 'border-slate-700 text-slate-500'}`}>
-                        {f}
-                    </button>
-                ))}
-            </div>
-        </div>
-
-        {/* COLORES */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-            <div>
-                <label className="block text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Color QR</label>
-                <div className="flex gap-2 flex-wrap">
-                    {colors.map(c => (
-                    <button key={c} onClick={() => setQrColor(c)}
-                        className={`w-6 h-6 rounded-full shadow-lg border ${qrColor === c ? 'border-white scale-125 ring-2 ring-cyber-primary' : 'border-transparent opacity-50 hover:opacity-100'}`}
-                        style={{ backgroundColor: c }} />
-                    ))}
-                </div>
-            </div>
-            <div>
-                <label className="block text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Color Texto</label>
-                <div className="flex gap-2 flex-wrap">
-                    {colors.map(c => (
-                    <button key={c} onClick={() => setCtaColor(c)}
-                        className={`w-6 h-6 rounded-full shadow-lg border ${ctaColor === c ? 'border-white scale-125 ring-2 ring-cyber-primary' : 'border-transparent opacity-50 hover:opacity-100'}`}
-                        style={{ backgroundColor: c }} />
-                    ))}
-                </div>
-            </div>
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-xs uppercase tracking-widest text-slate-500 mb-2 font-bold">Texto CTA</label>
-          <input value={ctaText} onChange={(e) => setCtaText(e.target.value)}
-            className="w-full bg-cyber-surface p-3 rounded-xl text-white border border-slate-700 focus:border-cyber-primary outline-none" />
-        </div>
-        
-        <button onClick={handleSave} disabled={loading} 
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyber-primary to-cyber-secondary p-4 rounded-xl font-bold font-cyber shadow-neon hover:shadow-neon-hover hover:-translate-y-1 transition-all text-white tracking-widest">
-          {loading ? "Guardando..." : <><FloppyDisk size={20} /> GUARDAR</>}
-        </button>
+        <h2 className="text-base font-cyber font-bold text-white truncate px-2">
+          {qrName || "Nuevo QR"}
+        </h2>
+        <div className="w-7"></div> {/* Spacer for centering */}
       </div>
 
-      {/* PANEL DERECHO: PREVIEW */}
-      <div className="w-full md:w-2/3 flex items-center justify-center bg-cyber-dark relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-        
-        <div className="relative z-10 flex flex-col items-center animate-fade-in-up">
-            
-            <div ref={cardRef} className="p-8 bg-cyber-dark/0 flex flex-col items-center justify-center rounded-3xl"> 
-                <div className={`transition-all duration-300 flex flex-col items-center ${frames[frameStyle]}`}>
-                    <div className="bg-white p-2 rounded-lg">
-                         <div ref={qrRef}></div>
-                    </div>
-                    <div className={`mt-4 text-center font-cyber font-bold text-2xl tracking-widest uppercase drop-shadow-sm`} style={{ color: ctaColor }}>
-                        {ctaText}
-                    </div>
-                </div>
-            </div>
-            
-            {id && (
-                <button onClick={handleDownload} className="mt-8 flex items-center gap-3 px-8 py-3 bg-white text-cyber-dark rounded-full hover:scale-105 transition shadow-xl font-bold">
-                   <DownloadSimple size={24} weight="fill" /> DESCARGAR IMAGEN
-                </button>
-            )}
+      {/* ========== MOBILE TAB SWITCHER ========== */}
+      <div className="md:hidden flex bg-[#0a0a12] px-4 pb-3 shrink-0">
+        <div className="flex w-full bg-cyber-surface rounded-xl p-1 border border-slate-800">
+          <button 
+            onClick={() => setMobileTab("edit")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+              mobileTab === "edit" 
+                ? "bg-gradient-to-r from-cyber-primary to-cyber-secondary text-white shadow-lg" 
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Sliders size={16} weight="bold" /> Editar
+          </button>
+          <button 
+            onClick={() => setMobileTab("preview")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+              mobileTab === "preview" 
+                ? "bg-gradient-to-r from-cyber-primary to-cyber-secondary text-white shadow-lg" 
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Eye size={16} weight="bold" /> Vista Previa
+          </button>
         </div>
+      </div>
+
+      {/* ========== LEFT PANEL: CONTROLS (desktop always visible, mobile conditional) ========== */}
+      <div className={`w-full md:w-[380px] lg:w-[420px] md:flex md:flex-col border-r border-cyber-surface bg-[#0a0a12] ${
+        mobileTab === "edit" ? "flex flex-col flex-1 min-h-0" : "hidden"
+      }`}>
+        
+        {/* Desktop-only back button and title */}
+        <div className="hidden md:block px-6 pt-6">
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-400 mb-6 hover:text-cyber-primary transition font-medium text-sm">
+              <ArrowLeft size={16} /> Volver
+          </button>
+          <h2 className="text-2xl font-cyber font-bold mb-6 text-white">Editar Diseño</h2>
+        </div>
+
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-28 md:pb-6 pt-4 md:pt-0">
+          
+          {/* NOMBRE DEL PROYECTO */}
+          <div className="mb-5">
+            <label className="block text-[11px] uppercase tracking-widest text-cyber-primary mb-2 font-bold">Nombre del Proyecto</label>
+            <input value={qrName} onChange={(e) => setQrName(e.target.value)}
+              className="w-full bg-cyber-surface p-3.5 rounded-xl text-white border border-slate-700 focus:border-cyber-primary outline-none transition font-bold text-sm" 
+              placeholder="Ej: Menú Restaurante, WiFi Casa..." />
+          </div>
+
+          {/* URL */}
+          <div className="mb-5">
+            <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-2 font-bold">Destino URL</label>
+            <div className="relative">
+              <LinkSimple size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)}
+                className="w-full bg-cyber-surface p-3.5 pl-10 rounded-xl text-white border border-slate-700 focus:border-cyber-primary outline-none transition text-sm" 
+                placeholder="https://..." />
+            </div>
+          </div>
+
+          {/* LOGO + SLIDER */}
+          <div className="mb-5 bg-cyber-surface p-4 rounded-xl border border-slate-700">
+              <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-3 font-bold">Logo</label>
+              <div className="flex gap-2 mb-3">
+                  <button onClick={() => setLogoUrl("https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg")} className="p-2.5 bg-[#0f172a] rounded-lg hover:scale-110 active:scale-95 transition border border-slate-800"><InstagramLogo size={22} color="#E1306C" weight="fill"/></button>
+                  <button onClick={() => setLogoUrl("https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg")} className="p-2.5 bg-[#0f172a] rounded-lg hover:scale-110 active:scale-95 transition border border-slate-800"><YoutubeLogo size={22} color="#FF0000" weight="fill"/></button>
+                  {logoUrl && <button onClick={() => setLogoUrl("")} className="p-2.5 bg-red-900/20 text-red-400 rounded-lg border border-red-500/20 active:scale-95 transition"><X size={20}/></button>}
+              </div>
+              
+              <div className="relative group cursor-pointer border border-dashed border-slate-600 rounded-xl p-3.5 text-center hover:border-cyber-accent active:border-cyber-primary transition mb-3">
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+                  <span className="text-xs text-slate-400 group-hover:text-white flex items-center justify-center gap-2"><Image size={16}/> Subir Logo Propio</span>
+              </div>
+
+              {/* SLIDER DE TAMAÑO */}
+              {logoUrl && (
+                  <div className="pt-2 border-t border-slate-700">
+                      <div className="flex justify-between text-xs text-slate-400 mb-2 mt-2">
+                          <span className="font-medium">Tamaño</span>
+                          <span className="font-mono text-cyber-accent">{Math.round(logoSize * 100)}%</span>
+                      </div>
+                      <input 
+                          type="range" 
+                          min="0.2" 
+                          max="0.6" 
+                          step="0.05" 
+                          value={logoSize} 
+                          onChange={(e) => setLogoSize(parseFloat(e.target.value))}
+                          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyber-primary"
+                      />
+                  </div>
+              )}
+          </div>
+
+          {/* MARCOS */}
+          <div className="mb-5">
+              <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-3 font-bold">Marco / Estilo</label>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-hide">
+                  {Object.keys(frames).map((f) => (
+                      <button key={f} onClick={() => setFrameStyle(f)} className={`px-4 py-2.5 rounded-xl border text-xs capitalize whitespace-nowrap snap-start font-bold transition-all active:scale-95 ${frameStyle === f ? 'border-cyber-primary bg-cyber-primary/10 text-white shadow-neon' : 'border-slate-700 text-slate-500 bg-cyber-surface'}`}>
+                          {f === "none" ? "Sin Marco" : f}
+                      </button>
+                  ))}
+              </div>
+          </div>
+
+          {/* COLORES */}
+          <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                  <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-3 font-bold">Color QR</label>
+                  <div className="flex gap-2.5 flex-wrap">
+                      {colors.map(c => (
+                      <button key={c} onClick={() => setQrColor(c)}
+                          className={`w-8 h-8 rounded-full shadow-lg border-2 transition-all active:scale-90 ${qrColor === c ? 'border-white scale-110 ring-2 ring-cyber-primary ring-offset-2 ring-offset-[#0a0a12]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                          style={{ backgroundColor: c }} />
+                      ))}
+                  </div>
+              </div>
+              <div>
+                  <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-3 font-bold">Color Texto</label>
+                  <div className="flex gap-2.5 flex-wrap">
+                      {colors.map(c => (
+                      <button key={c} onClick={() => setCtaColor(c)}
+                          className={`w-8 h-8 rounded-full shadow-lg border-2 transition-all active:scale-90 ${ctaColor === c ? 'border-white scale-110 ring-2 ring-cyber-primary ring-offset-2 ring-offset-[#0a0a12]' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                          style={{ backgroundColor: c }} />
+                      ))}
+                  </div>
+              </div>
+          </div>
+
+          {/* TEXTO CTA */}
+          <div className="mb-5">
+            <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-2 font-bold">Texto CTA</label>
+            <input value={ctaText} onChange={(e) => setCtaText(e.target.value)}
+              className="w-full bg-cyber-surface p-3.5 rounded-xl text-white border border-slate-700 focus:border-cyber-primary outline-none text-sm" />
+          </div>
+          
+          {/* Desktop Save Button */}
+          <button onClick={handleSave} disabled={loading} 
+              className="hidden md:flex w-full items-center justify-center gap-2 bg-gradient-to-r from-cyber-primary to-cyber-secondary p-4 rounded-xl font-bold font-cyber shadow-neon hover:shadow-neon-hover hover:-translate-y-1 transition-all text-white tracking-widest text-sm">
+            {loading ? "Guardando..." : saved ? <><CheckCircle size={20} weight="fill" /> ¡GUARDADO!</> : <><FloppyDisk size={20} /> GUARDAR</>}
+          </button>
+        </div>
+      </div>
+
+      {/* ========== RIGHT PANEL: PREVIEW (desktop always visible, mobile conditional) ========== */}
+      <div className={`flex-1 bg-cyber-dark ${
+        mobileTab === "preview" ? "flex flex-col min-h-0" : "hidden md:flex md:flex-col"
+      }`}>
+        <PreviewPanel className="flex-1 overflow-auto" />
+      </div>
+
+      {/* ========== MOBILE FLOATING SAVE BUTTON ========== */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12] to-transparent pt-8">
+        <button onClick={handleSave} disabled={loading} 
+            className={`w-full flex items-center justify-center gap-2.5 p-4 rounded-2xl font-bold font-cyber shadow-neon transition-all text-white tracking-widest text-sm active:scale-[0.98] ${
+              saved 
+                ? "bg-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.4)]" 
+                : "bg-gradient-to-r from-cyber-primary to-cyber-secondary hover:shadow-neon-hover"
+            }`}>
+          {loading ? (
+            <><span className="animate-spin w-5 h-5 border-2 border-white rounded-full border-t-transparent"></span> Guardando...</>
+          ) : saved ? (
+            <><CheckCircle size={20} weight="fill" /> ¡GUARDADO!</>
+          ) : (
+            <><FloppyDisk size={20} /> GUARDAR</>
+          )}
+        </button>
       </div>
     </div>
   );
