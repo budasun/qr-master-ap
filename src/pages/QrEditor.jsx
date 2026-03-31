@@ -8,6 +8,7 @@ import { ArrowLeft, DownloadSimple, YoutubeLogo, TwitterLogo, InstagramLogo, X, 
 import { toPng } from 'html-to-image';
 
 const qrCode = new QRCodeStyling({
+  type: "canvas", // <--- ¡AÑADE ESTA LÍNEA AQUÍ!
   width: 280,
   height: 280,
   image: "",
