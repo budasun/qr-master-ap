@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { db } from "../firebase/config"; // Ahora sí encontrará esta ruta
-import { doc, getDoc } from "firebase/firestore";
+import { supabase } from "../supabase/client";
 
 const RedirectHandler = () => {
   const { id } = useParams();
@@ -11,17 +10,11 @@ const RedirectHandler = () => {
     const handleRedirect = async () => {
       if (!id) return;
       try {
-        const docRef = doc(db, "qrs", id);
-        const docSnap = await getDoc(docRef);
+        const { data, error } = await supabase.from('qrs').select('targetUrl').eq('id', id).single();
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.targetUrl) {
-            setStatus("Redirigiendo...");
-            window.location.href = data.targetUrl; 
-          } else {
-            setStatus("Este QR no tiene destino.");
-          }
+        if (data?.targetUrl) {
+          setStatus("Redirigiendo...");
+          window.location.replace(data.targetUrl);
         } else {
           setStatus("QR no encontrado.");
         }

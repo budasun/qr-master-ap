@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import QRCodeStyling from "qr-code-styling";
-import { db } from "../firebase/config";
-import { doc, setDoc, getDoc, collection } from "firebase/firestore";
+import { supabase } from "../supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 import { ArrowLeft, DownloadSimple, YoutubeLogo, TwitterLogo, InstagramLogo, X, Image, FloppyDisk, Eye, Sliders, CheckCircle, LinkSimple } from "phosphor-react";
@@ -54,9 +53,8 @@ const QrEditor = () => {
     if (id) {
         const loadData = async () => {
             try {
-                const docSnap = await getDoc(doc(db, "qrs", id));
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+                const { data, error } = await supabase.from('qrs').select('*').eq('id', id).single();
+                if (data) {
                     setQrName(data.name || "");
                     setTargetUrl(data.targetUrl || "");
                     setCtaText(data.design?.ctaText || "ESCANÉAME");
@@ -102,26 +100,27 @@ const QrEditor = () => {
     
     setLoading(true);
     try {
-        const docRef = id ? doc(db, "qrs", id) : doc(collection(db, "qrs"));
-        await setDoc(docRef, {
-          userId: user.uid,
-          name: qrName,
-          targetUrl,
-          updatedAt: new Date(),
-          design: { 
-              color: qrColor, 
-              ctaText, 
-              ctaColor, 
-              logo: logoUrl, 
-              logoSize,
-              frame: frameStyle 
+        const qrData = {
+            user_id: user.id,
+            name: qrName,
+            targetUrl,
+            design: { 
+                color: qrColor, 
+                ctaText, 
+                ctaColor, 
+                logo: logoUrl, 
+                logoSize,
+                frame: frameStyle 
             }
-        }, { merge: true });
-        
-        if (!id) navigate(`/editor/${docRef.id}`);
-        else {
-          setSaved(true);
-          setTimeout(() => setSaved(false), 2000);
+        };
+
+        if (id) {
+            await supabase.from('qrs').update(qrData).eq('id', id);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } else {
+            const { data, error } = await supabase.from('qrs').insert(qrData).select().single();
+            if (data) navigate(`/editor/${data.id}`);
         }
     } catch (error) { alert("Error al guardar"); } 
     finally { setLoading(false); }

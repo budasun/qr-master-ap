@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-// 👇 IMPORTANTE: "../" para salir de components e ir a firebase
-import { auth, googleProvider } from "../firebase/config"; 
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { supabase } from "../supabase/client";
 
 const AuthContext = createContext();
 
@@ -9,16 +7,25 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
-  const logout = () => signOut(auth);
+  const loginWithGoogle = () => supabase.auth.signInWithOAuth({ provider: 'google' });
+  const logout = () => supabase.auth.signOut();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+
+    initAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   return (
     <AuthContext.Provider value={{ user, loginWithGoogle, logout, loading }}>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { db } from "../firebase/config";
-import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { supabase } from "../supabase/client";
 import { useAuth } from "../components/AuthContext";
 import QrThumb from "../components/QrThumb";
 import QRCodeStyling from "qr-code-styling";
@@ -16,10 +15,8 @@ const Dashboard = () => {
 
   const fetchQrs = async () => {
     try {
-      const q = query(collection(db, "qrs"), where("userId", "==", user.uid));
-      const querySnapshot = await getDocs(q);
-      const loadedQrs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setQrs(loadedQrs);
+      const { data, error } = await supabase.from('qrs').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      setQrs(data || []);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -31,7 +28,7 @@ const Dashboard = () => {
 
   const handleDelete = async (qrId) => {
     if (confirm("¿Borrar este QR permanentemente?")) {
-      await deleteDoc(doc(db, "qrs", qrId));
+      await supabase.from('qrs').delete().eq('id', qrId);
       fetchQrs();
     }
   };
