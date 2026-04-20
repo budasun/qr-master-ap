@@ -4,7 +4,7 @@ import { supabase } from "../supabase/client";
 import { useAuth } from "../components/AuthContext";
 import QrThumb from "../components/QrThumb";
 import QRCodeStyling from "qr-code-styling";
-import { Trash, PencilSimple, Plus, SignOut, ChartBar, DownloadSimple, Envelope, WhatsappLogo, Link as LinkIcon, CheckCircle } from "phosphor-react";
+import { Trash, PencilSimple, Plus, SignOut, ChartBar, DownloadSimple, Envelope, WhatsappLogo, Link as LinkIcon, CheckCircle, CloudArrowUp } from "phosphor-react";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -16,17 +16,22 @@ const Dashboard = () => {
   const fetchQrs = async () => {
     try {
       const { data, error } = await supabase.from('qrs').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      
+      const cached = localStorage.getItem(`cached_qrs_${user.id}`);
+      let localOnlyQrs = [];
+      if (cached) {
+        localOnlyQrs = JSON.parse(cached).filter(q => q.id.startsWith('local_'));
+      }
+
       if (data) {
-        setQrs(data);
-        localStorage.setItem(`cached_qrs_${user.id}`, JSON.stringify(data));
+        const merged = [...localOnlyQrs, ...data];
+        setQrs(merged);
+        localStorage.setItem(`cached_qrs_${user.id}`, JSON.stringify(merged));
       }
     } catch (error) {
       console.error("Error:", error);
-      // Intentar cargar del caché si falla (probablemente offline)
       const cached = localStorage.getItem(`cached_qrs_${user.id}`);
-      if (cached) {
-        setQrs(JSON.parse(cached));
-      }
+      if (cached) setQrs(JSON.parse(cached));
     } finally {
       setLoading(false);
     }
@@ -34,18 +39,25 @@ const Dashboard = () => {
 
   useEffect(() => { 
     if (user) {
-      // Cargar caché inmediatamente para rapidez
       const cached = localStorage.getItem(`cached_qrs_${user.id}`);
       if (cached) setQrs(JSON.parse(cached));
-      
       fetchQrs();
     } 
   }, [user]);
 
   const handleDelete = async (qrId) => {
     if (confirm("¿Borrar este QR permanentemente?")) {
-      await supabase.from('qrs').delete().eq('id', qrId);
-      fetchQrs();
+      if (typeof qrId === 'string' && qrId.startsWith('local_')) {
+        const cached = localStorage.getItem(`cached_qrs_${user.id}`);
+        if (cached) {
+          const list = JSON.parse(cached).filter(q => q.id !== qrId);
+          localStorage.setItem(`cached_qrs_${user.id}`, JSON.stringify(list));
+          setQrs(list);
+        }
+      } else {
+        await supabase.from('qrs').delete().eq('id', qrId);
+        fetchQrs();
+      }
     }
   };
 
@@ -143,10 +155,19 @@ const Dashboard = () => {
                         <QrThumb design={qr.design} link={`${window.location.origin}/r/${qr.id}`} />
                     </div>
                     
-                    {/* Badge de visitas */}
-                    <div className="absolute top-4 right-4 flex items-center gap-1 bg-slate-950/80 backdrop-blur px-3 py-1 rounded-full text-xs text-cyber-accent font-mono border border-slate-700">
-                        <ChartBar size={14} weight="bold" />
-                        {qr.visitCount || 0}
+                    {/* Badge de visitas o Sync */}
+                    <div className="absolute top-4 right-4 flex items-center gap-1 bg-slate-950/80 backdrop-blur px-3 py-1 rounded-full text-xs font-mono border border-slate-700">
+                        {qr.id.toString().startsWith('local_') ? (
+                          <div className="flex items-center gap-1.5 text-amber-500 animate-pulse font-bold">
+                            <CloudArrowUp size={14} weight="bold" />
+                            <span>LOCAL</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-cyber-accent">
+                            <ChartBar size={14} weight="bold" />
+                            {qr.visitCount || 0}
+                          </div>
+                        )}
                     </div>
                 </div>
 

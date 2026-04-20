@@ -114,7 +114,6 @@ const QrEditor = () => {
   };
 
   const handleSave = async () => {
-    if (!navigator.onLine) return alert("⚠️ No tienes conexión a internet. No se puede guardar en la nube.");
     if (!targetUrl) return alert("Falta la URL de destino");
     if (!qrName) return alert("Ponle un nombre a tu proyecto (ej: 'Menú Cena')");
     
@@ -134,16 +133,57 @@ const QrEditor = () => {
               }
         };
 
-        if (id) {
-            await supabase.from('qrs').update(qrData).eq('id', id);
+        if (navigator.onLine) {
+            if (id && !id.startsWith('local_')) {
+                await supabase.from('qrs').update(qrData).eq('id', id);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+            } else {
+                const { data, error } = await supabase.from('qrs').insert(qrData).select().single();
+                if (data) {
+                    // Si antes era local, eliminarlo del caché local antes de navegar
+                    if (id && id.startsWith('local_')) {
+                        const cached = localStorage.getItem(`cached_qrs_${user?.id}`);
+                        if (cached) {
+                            const list = JSON.parse(cached).filter(q => q.id !== id);
+                            localStorage.setItem(`cached_qrs_${user?.id}`, JSON.stringify(list));
+                        }
+                    }
+                    navigate(`/editor/${data.id}`);
+                }
+            }
+        } else {
+            // MODO OFFLINE: Guardar localmente
+            const localId = id || `local_${Date.now()}`;
+            const localQr = { 
+                ...qrData, 
+                id: localId, 
+                created_at: new Date().toISOString(),
+                isLocalOnly: true 
+            };
+
+            const cached = localStorage.getItem(`cached_qrs_${user?.id}`);
+            let list = cached ? JSON.parse(cached) : [];
+            
+            const existingIndex = list.findIndex(q => q.id === localId);
+            if (existingIndex > -1) {
+                list[existingIndex] = localQr;
+            } else {
+                list.unshift(localQr);
+            }
+
+            localStorage.setItem(`cached_qrs_${user?.id}`, JSON.stringify(list));
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
-        } else {
-            const { data, error } = await supabase.from('qrs').insert(qrData).select().single();
-            if (data) navigate(`/editor/${data.id}`);
+            
+            if (!id) navigate(`/editor/${localId}`);
         }
-    } catch (error) { alert("Error al guardar"); } 
-    finally { setLoading(false); }
+    } catch (error) { 
+        console.error(error);
+        alert("Error al guardar"); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const handleDownload = async () => {
