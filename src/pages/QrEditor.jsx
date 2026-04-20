@@ -38,8 +38,18 @@ const QrEditor = () => {
   // Mobile tab state
   const [mobileTab, setMobileTab] = useState("edit"); // "edit" | "preview"
 
+  // Lógica de URL del QR: 
+  // 1. Si es un QR online y guardado, usamos el enlace dinámico /r/id
+  // 2. Si es offline (local_) o es un QR nuevo sin guardar, incrustamos el targetUrl directamente (QR estático)
   const baseUrl = window.location.origin;
-  const qrContent = id ? `${baseUrl}/r/${id}` : "https://tu-app-url.com";
+  const isLocalOffline = id && id.toString().startsWith('local_');
+  
+  let qrContent = "https://tu-app-url.com";
+  if (id && !isLocalOffline) {
+      qrContent = `${baseUrl}/r/${id}`;
+  } else if (targetUrl) {
+      qrContent = targetUrl; 
+  }
 
   const frames = {
     none: "bg-white p-4 rounded-xl",
