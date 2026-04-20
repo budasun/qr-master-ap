@@ -52,23 +52,42 @@ const QrEditor = () => {
   useEffect(() => {
     if (id) {
         const loadData = async () => {
-            try {
-                const { data, error } = await supabase.from('qrs').select('*').eq('id', id).single();
-                if (data) {
-                    setQrName(data.name || "");
-                    setTargetUrl(data.targetUrl || "");
-                    setCtaText(data.design?.ctaText || "ESCANÉAME");
-                    setQrColor(data.design?.color || "#000000");
-                    setCtaColor(data.design?.ctaColor || "#ffffff");
-                    setLogoUrl(data.design?.logo || "");
-                    setLogoSize(data.design?.logoSize || 0.4);
-                    setFrameStyle(data.design?.frame || "none");
+            // Primero intentar cargar de la lista cacheada en Dashboard para rapidez/offline
+            const cachedList = localStorage.getItem(`cached_qrs_${user?.id}`);
+            if (cachedList) {
+                const list = JSON.parse(cachedList);
+                const item = list.find(q => q.id === id);
+                if (item) {
+                    setQrName(item.name || "");
+                    setTargetUrl(item.targetUrl || "");
+                    setCtaText(item.design?.ctaText || "ESCANÉAME");
+                    setQrColor(item.design?.color || "#000000");
+                    setCtaColor(item.design?.ctaColor || "#ffffff");
+                    setLogoUrl(item.design?.logo || "");
+                    setLogoSize(item.design?.logoSize || 0.4);
+                    setFrameStyle(item.design?.frame || "none");
                 }
-            } catch (error) { console.error(error); }
+            }
+
+            if (navigator.onLine) {
+                try {
+                    const { data, error } = await supabase.from('qrs').select('*').eq('id', id).single();
+                    if (data) {
+                        setQrName(data.name || "");
+                        setTargetUrl(data.targetUrl || "");
+                        setCtaText(data.design?.ctaText || "ESCANÉAME");
+                        setQrColor(data.design?.color || "#000000");
+                        setCtaColor(data.design?.ctaColor || "#ffffff");
+                        setLogoUrl(data.design?.logo || "");
+                        setLogoSize(data.design?.logoSize || 0.4);
+                        setFrameStyle(data.design?.frame || "none");
+                    }
+                } catch (error) { console.error(error); }
+            }
         };
         loadData();
     }
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     qrCode.update({
@@ -95,6 +114,7 @@ const QrEditor = () => {
   };
 
   const handleSave = async () => {
+    if (!navigator.onLine) return alert("⚠️ No tienes conexión a internet. No se puede guardar en la nube.");
     if (!targetUrl) return alert("Falta la URL de destino");
     if (!qrName) return alert("Ponle un nombre a tu proyecto (ej: 'Menú Cena')");
     
@@ -111,7 +131,7 @@ const QrEditor = () => {
                 logo: logoUrl, 
                 logoSize,
                 frame: frameStyle 
-            }
+              }
         };
 
         if (id) {

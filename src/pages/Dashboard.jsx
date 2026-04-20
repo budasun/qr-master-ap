@@ -16,15 +16,31 @@ const Dashboard = () => {
   const fetchQrs = async () => {
     try {
       const { data, error } = await supabase.from('qrs').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-      setQrs(data || []);
+      if (data) {
+        setQrs(data);
+        localStorage.setItem(`cached_qrs_${user.id}`, JSON.stringify(data));
+      }
     } catch (error) {
       console.error("Error:", error);
+      // Intentar cargar del caché si falla (probablemente offline)
+      const cached = localStorage.getItem(`cached_qrs_${user.id}`);
+      if (cached) {
+        setQrs(JSON.parse(cached));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { if (user) fetchQrs(); }, [user]);
+  useEffect(() => { 
+    if (user) {
+      // Cargar caché inmediatamente para rapidez
+      const cached = localStorage.getItem(`cached_qrs_${user.id}`);
+      if (cached) setQrs(JSON.parse(cached));
+      
+      fetchQrs();
+    } 
+  }, [user]);
 
   const handleDelete = async (qrId) => {
     if (confirm("¿Borrar este QR permanentemente?")) {
