@@ -62,24 +62,29 @@ const Dashboard = () => {
   };
 
   // --- FUNCIONES DE COMPARTIR ---
-  const getShareLink = (qrId) => `${window.location.origin}/r/${qrId}`;
+  const getShareLink = (qr) => {
+    if (qr.id.toString().startsWith('local_')) {
+      return /^https?:\/\//i.test(qr.targetUrl) ? qr.targetUrl : `https://${qr.targetUrl}`;
+    }
+    return `${window.location.origin}/r/${qr.id}`;
+  };
 
-  const handleCopyLink = (qrId) => {
-    const link = getShareLink(qrId);
+  const handleCopyLink = (qr) => {
+    const link = getShareLink(qr);
     navigator.clipboard.writeText(link);
-    setCopiedId(qrId);
+    setCopiedId(qr.id);
     setTimeout(() => setCopiedId(null), 2000); // Quitar el check a los 2 seg
   };
 
   const handleGmail = (qr) => {
-    const link = getShareLink(qr.id);
+    const link = getShareLink(qr);
     const subject = `Mira mi nuevo QR: ${qr.name}`;
     const body = `Hola, te comparto este enlace dinámico: ${link}`;
     window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
-  const handleWhatsapp = (qrId) => {
-    const link = getShareLink(qrId);
+  const handleWhatsapp = (qr) => {
+    const link = getShareLink(qr);
     window.open(`https://wa.me/?text=${encodeURIComponent(link)}`, '_blank');
   };
 
@@ -87,7 +92,7 @@ const Dashboard = () => {
   const handleDownload = async (qr) => {
     setDownloadingId(qr.id);
     try {
-      const link = getShareLink(qr.id);
+      const link = getShareLink(qr);
       const qrInstance = new QRCodeStyling({
         type: "canvas",
         width: 800,
@@ -152,7 +157,7 @@ const Dashboard = () => {
                 <div className="relative h-48 bg-slate-900/50 p-6 flex items-center justify-center border-b border-slate-800">
                     <div className="w-32 h-32 bg-white p-2 rounded-xl shadow-lg transform group-hover:scale-110 transition duration-500">
                         {/* AQUÍ USAMOS EL COMPONENTE NUEVO */}
-                        <QrThumb design={qr.design} link={`${window.location.origin}/r/${qr.id}`} />
+                        <QrThumb design={qr.design} link={getShareLink(qr)} />
                     </div>
                     
                     {/* Badge de visitas o Sync */}
@@ -221,13 +226,13 @@ const Dashboard = () => {
                             </button>
 
                             {/* WhatsApp */}
-                            <button onClick={() => handleWhatsapp(qr.id)} className="flex justify-center items-center py-2 bg-slate-800 hover:bg-green-600/20 hover:text-green-400 rounded-lg transition text-slate-400" title="Enviar por WhatsApp">
+                            <button onClick={() => handleWhatsapp(qr)} className="flex justify-center items-center py-2 bg-slate-800 hover:bg-green-600/20 hover:text-green-400 rounded-lg transition text-slate-400" title="Enviar por WhatsApp">
                                 <WhatsappLogo size={20} />
                             </button>
 
                             {/* Copiar Link */}
                             <button 
-                                onClick={() => handleCopyLink(qr.id)} 
+                                onClick={() => handleCopyLink(qr)} 
                                 className={`flex justify-center items-center py-2 rounded-lg transition ${copiedId === qr.id ? 'bg-green-500 text-white' : 'bg-slate-800 hover:bg-cyber-primary/20 hover:text-cyber-primary text-slate-400'}`} 
                                 title="Copiar Link"
                             >

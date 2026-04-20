@@ -48,7 +48,8 @@ const QrEditor = () => {
   if (id && !isLocalOffline) {
       qrContent = `${baseUrl}/r/${id}`;
   } else if (targetUrl) {
-      qrContent = targetUrl; 
+      // Para QRs estáticos (offline/no guardados), asegurar protocolo
+      qrContent = /^https?:\/\//i.test(targetUrl) ? targetUrl : `https://${targetUrl}`;
   }
 
   const frames = {
@@ -132,7 +133,7 @@ const QrEditor = () => {
         const qrData = {
             user_id: user.id,
             name: qrName,
-            targetUrl,
+            targetUrl: /^https?:\/\//i.test(targetUrl) ? targetUrl : `https://${targetUrl}`,
             design: { 
                 color: qrColor, 
                 ctaText, 

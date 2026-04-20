@@ -13,8 +13,12 @@ const RedirectHandler = () => {
         const { data, error } = await supabase.from('qrs').select('targetUrl').eq('id', id).single();
 
         if (data?.targetUrl) {
+          let url = data.targetUrl;
+          if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+          }
           setStatus("Redirigiendo...");
-          window.location.replace(data.targetUrl);
+          window.location.replace(url);
         } else {
           setStatus("QR no encontrado.");
         }
